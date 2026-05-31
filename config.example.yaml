@@ -1,0 +1,39 @@
+# reveillm example configuration
+#
+# targets: the LLM endpoints to route to
+# configs: named routing profiles, selected via /{config-name}/ in the request URL
+
+targets:
+  # Local Ollama on a Windows machine that may be sleeping
+  ollama-home:
+    url: http://172.16.2.10:11434
+    hook: "wakeonlan 10:7C:61:3D:75:AF"
+    hook_timeout: 90s
+    hook_poll_interval: 5s
+    timeout: 120s
+
+  # Anthropic Claude via its OpenAI-compatible endpoint
+  claude-sonnet:
+    url: https://api.anthropic.com
+    api_key: "${ANTHROPIC_API_KEY}"
+    timeout: 60s
+
+  claude-haiku:
+    url: https://api.anthropic.com
+    api_key: "${ANTHROPIC_API_KEY}"
+    timeout: 30s
+
+configs:
+  # Prefer local GPU; fall back to Claude Sonnet if unavailable
+  home:
+    targets:
+      - target: ollama-home
+        model: llama3.1:70b
+      - target: claude-sonnet
+        model: claude-3-5-sonnet-20241022
+
+  # Always Claude Haiku (fast, cheap, no wake delay)
+  fast:
+    targets:
+      - target: claude-haiku
+        model: claude-haiku-4-5-20251001

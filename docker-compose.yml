@@ -1,0 +1,15 @@
+services:
+  reveillm:
+    build: .
+    image: reveillm:latest
+    network_mode: host
+    volumes:
+      - ./config.yaml:/etc/reveillm/config.yaml:ro
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -161,7 +161,7 @@ reveillm/
 
 ## Deployment
 
-Docker on the Docker LXC (`172.16.2.18`). Multi-stage Dockerfile: `golang:alpine` build stage → `gcr.io/distroless/static` runtime image (~15MB). `distroless/static` is used (not `scratch`) because it includes CA certificates needed for TLS connections to cloud providers. The `wakeonlan` binary is included in the final image.
+Docker on the Docker LXC (`172.16.2.18`). Multi-stage Dockerfile: `golang:alpine` build stage → `alpine:3.19` runtime (~20MB). Alpine is used rather than distroless because hook commands require a shell (`sh -c`). `ca-certificates` and `bash` are installed via `apk add`.
 
 ```yaml
 services:
