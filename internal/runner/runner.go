@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/jamietre/reveillm/internal/adapter"
 	"github.com/jamietre/reveillm/internal/config"
@@ -58,7 +59,8 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 		target := r.cfg.Targets[entry.Target]
 
 		if target.Hook != "" {
-			err := r.hooks.Run(ctx, entry.Target, target.Hook, target.URL+"/", target.HookTimeout, target.HookPollInterval)
+			pollURL := strings.TrimRight(target.URL, "/") + "/"
+			err := r.hooks.Run(ctx, entry.Target, target.Hook, pollURL, target.HookTimeout, target.HookPollInterval)
 			if err != nil {
 				result.Failures = append(result.Failures, TargetFailure{Name: entry.Target, Reason: err.Error()})
 				continue
