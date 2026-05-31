@@ -51,7 +51,10 @@ func Load(path string) (*Config, error) {
 		cfg.Targets[name] = t
 	}
 
-	return &cfg, validate(&cfg)
+	if err := validate(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 var envVarRe = regexp.MustCompile(`\$\{([^}]+)\}`)
@@ -63,6 +66,11 @@ func interpolateEnv(data []byte) []byte {
 }
 
 func validate(cfg *Config) error {
+	for name, t := range cfg.Targets {
+		if t.URL == "" {
+			return fmt.Errorf("target %q: url is required", name)
+		}
+	}
 	for cfgName, route := range cfg.Configs {
 		for _, entry := range route.Targets {
 			if _, ok := cfg.Targets[entry.Target]; !ok {

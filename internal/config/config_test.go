@@ -35,7 +35,9 @@ func writeTemp(t *testing.T, content string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString(content)
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
 	f.Close()
 	return f.Name()
 }
@@ -152,5 +154,23 @@ func TestLoad_fileNotFound(t *testing.T) {
 	_, err := config.Load("/nonexistent/path.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestLoad_missingURL(t *testing.T) {
+	yaml := `
+targets:
+  t:
+    url: ""
+    timeout: 10s
+configs:
+  c:
+    targets:
+      - target: t
+        model: m
+`
+	_, err := config.Load(writeTemp(t, yaml))
+	if err == nil {
+		t.Fatal("expected error for empty url")
 	}
 }
