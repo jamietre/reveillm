@@ -74,17 +74,41 @@ func doWake(ctx context.Context, cmd, pollURL string, hookTimeout, pollInterval 
 }
 
 func poll(ctx context.Context, url string, timeout, interval time.Duration) error {
-	client := &http.Client{Timeout: interval}
 	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if _, err := client.Get(url); err == nil {
-			return nil
+	deadlineCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	probe := func() bool {
+		reqCtx, reqCancel := context.WithTimeout(deadlineCtx, interval)
+		defer reqCancel()
+		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+		if err != nil {
+			return false
 		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return false
+		}
+		resp.Body.Close()
+		return true
+	}
+
+	// probe immediately before waiting for the first tick
+	if probe() {
+		return nil
+	}
+
+	for {
 		select {
-		case <-time.After(interval):
-		case <-ctx.Done():
-			return ctx.Err()
+		case <-ticker.C:
+			if probe() {
+				return nil
+			}
+		case <-deadlineCtx.Done():
+			return fmt.Errorf("target not ready after %s", timeout)
 		}
 	}
-	return fmt.Errorf("target not ready after %s", timeout)
 }
