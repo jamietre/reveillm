@@ -3,6 +3,7 @@ package hook
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -52,7 +53,7 @@ func (m *Manager) Run(ctx context.Context, targetName string, action func() erro
 	w.active = true
 	w.mu.Unlock()
 
-	err := doWake(ctx, action, pollURL, hookTimeout, pollInterval)
+	err := doWake(ctx, targetName, action, pollURL, hookTimeout, pollInterval)
 
 	w.mu.Lock()
 	w.active = false
@@ -65,14 +66,24 @@ func (m *Manager) Run(ctx context.Context, targetName string, action func() erro
 	return err
 }
 
-func doWake(ctx context.Context, action func() error, pollURL string, hookTimeout, pollInterval time.Duration) error {
+func doWake(ctx context.Context, targetName string, action func() error, pollURL string, hookTimeout, pollInterval time.Duration) error {
+	start := time.Now()
 	if err := action(); err != nil {
 		return fmt.Errorf("wake action failed: %w", err)
 	}
-	return poll(ctx, pollURL, hookTimeout, pollInterval)
+	alreadyAwake, err := poll(ctx, pollURL, hookTimeout, pollInterval)
+	if err != nil {
+		return err
+	}
+	if alreadyAwake {
+		slog.Info("target already awake", "target", targetName)
+	} else {
+		slog.Info("target woke", "target", targetName, "ms", time.Since(start).Milliseconds())
+	}
+	return nil
 }
 
-func poll(ctx context.Context, url string, timeout, interval time.Duration) error {
+func poll(ctx context.Context, url string, timeout, interval time.Duration) (alreadyAwake bool, err error) {
 	deadline := time.Now().Add(timeout)
 	deadlineCtx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
@@ -96,17 +107,17 @@ func poll(ctx context.Context, url string, timeout, interval time.Duration) erro
 	}
 
 	if probe() {
-		return nil
+		return true, nil
 	}
 
 	for {
 		select {
 		case <-ticker.C:
 			if probe() {
-				return nil
+				return false, nil
 			}
 		case <-deadlineCtx.Done():
-			return fmt.Errorf("target not ready after %s", timeout)
+			return false, fmt.Errorf("target not ready after %s", timeout)
 		}
 	}
 }
