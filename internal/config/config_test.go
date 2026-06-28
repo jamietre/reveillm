@@ -11,7 +11,7 @@ import (
 const validYAML = `
 targets:
   ollama-home:
-    url: http://172.16.2.10:11434
+    url: http://192.168.1.100:11434
     hook: "wakeonlan AA:BB:CC:DD:EE:FF"
     hook_timeout: 90s
     hook_poll_interval: 5s

@@ -6,8 +6,8 @@
 targets:
   # Local Ollama on a Windows machine that may be sleeping
   ollama-home:
-    url: http://172.16.2.10:11434
-    hook: "wakeonlan 10:7C:61:3D:75:AF"
+    url: http://192.168.1.100:11434
+    hook: "wakeonlan AA:BB:CC:DD:EE:FF"
     hook_timeout: 90s
     hook_poll_interval: 5s
     timeout: 120s
