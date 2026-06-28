@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/jamietre/reveillm/internal/adapter"
 	"github.com/jamietre/reveillm/internal/config"
 	"github.com/jamietre/reveillm/internal/hook"
+	"github.com/jamietre/reveillm/internal/wol"
 )
 
 // TargetFailure records why a specific target was skipped.
@@ -58,9 +60,21 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 	for _, entry := range route.Targets {
 		target := r.cfg.Targets[entry.Target]
 
-		if target.Hook != "" {
+		var action func() error
+		switch {
+		case target.WoL != "":
+			mac := target.WoL
+			action = func() error { return wol.Wake(mac) }
+		case target.Hook != "":
+			cmd := target.Hook
+			action = func() error {
+				return exec.CommandContext(ctx, "sh", "-c", cmd).Run()
+			}
+		}
+
+		if action != nil {
 			pollURL := strings.TrimRight(target.URL, "/") + "/"
-			err := r.hooks.Run(ctx, entry.Target, target.Hook, pollURL, target.HookTimeout, target.HookPollInterval)
+			err := r.hooks.Run(ctx, entry.Target, action, pollURL, target.HookTimeout, target.HookPollInterval)
 			if err != nil {
 				result.Failures = append(result.Failures, TargetFailure{Name: entry.Target, Reason: err.Error()})
 				continue
