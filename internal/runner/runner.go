@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -73,9 +74,15 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 		}
 
 		if action != nil {
+			if target.WoL != "" {
+				slog.Info("wol", "target", entry.Target)
+			} else {
+				slog.Info("hook", "target", entry.Target, "cmd", target.Hook)
+			}
 			pollURL := strings.TrimRight(target.URL, "/") + "/"
 			err := r.hooks.Run(ctx, entry.Target, action, pollURL, target.HookTimeout, target.HookPollInterval)
 			if err != nil {
+				slog.Warn("wake failed", "target", entry.Target, "err", err)
 				result.Failures = append(result.Failures, TargetFailure{Name: entry.Target, Reason: err.Error()})
 				continue
 			}
@@ -85,12 +92,14 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 		resp, err := r.adapter.Forward(reqCtx, method, target.URL+urlPath, headers, body, target.APIKey, entry.Model)
 		if err != nil {
 			cancel()
+			slog.Warn("target failed", "target", entry.Target, "err", err)
 			result.Failures = append(result.Failures, TargetFailure{Name: entry.Target, Reason: err.Error()})
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			cancel()
 			resp.Body.Close()
+			slog.Warn("target failed", "target", entry.Target, "status", resp.StatusCode)
 			result.Failures = append(result.Failures, TargetFailure{
 				Name:   entry.Target,
 				Reason: fmt.Sprintf("non-2xx status %d", resp.StatusCode),
@@ -98,6 +107,7 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 			continue
 		}
 
+		slog.Info("target ok", "target", entry.Target, "model", entry.Model)
 		result.Response = resp
 		result.cancel = cancel
 		return result, nil

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jamietre/reveillm/internal/runner"
 )
@@ -30,6 +32,17 @@ func NewHandler(r RunnerIface, configNames []string) *Handler {
 	return &Handler{runner: r, configList: configNames, configSet: set}
 }
 
+// statusWriter captures the response status code written by handlers.
+type statusWriter struct {
+	http.ResponseWriter
+	code int
+}
+
+func (sw *statusWriter) WriteHeader(code int) {
+	sw.code = code
+	sw.ResponseWriter.WriteHeader(code)
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/health":
@@ -40,6 +53,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string][]string{"configs": h.configList})
 		return
 	}
+
+	sw := &statusWriter{ResponseWriter: w, code: http.StatusOK}
+	start := time.Now()
+	defer func() {
+		slog.Info("request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", sw.code,
+			"ms", time.Since(start).Milliseconds(),
+		)
+	}()
+	w = sw
 
 	trimmed := strings.TrimPrefix(r.URL.Path, "/")
 	idx := strings.IndexByte(trimmed, '/')
