@@ -174,3 +174,71 @@ configs:
 		t.Fatal("expected error for empty url")
 	}
 }
+
+func TestLoad_wolField(t *testing.T) {
+	yaml := `
+targets:
+  t:
+    url: http://192.168.1.100:11434
+    wol: "AA:BB:CC:DD:EE:FF"
+    hook_timeout: 90s
+    hook_poll_interval: 5s
+    timeout: 30s
+configs:
+  c:
+    targets:
+      - target: t
+        model: llama3.1:70b
+`
+	cfg, err := config.Load(writeTemp(t, yaml))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Targets["t"].WoL != "AA:BB:CC:DD:EE:FF" {
+		t.Errorf("want wol field set, got %q", cfg.Targets["t"].WoL)
+	}
+}
+
+func TestLoad_wolDefaultPollInterval(t *testing.T) {
+	yaml := `
+targets:
+  t:
+    url: http://192.168.1.100:11434
+    wol: "AA:BB:CC:DD:EE:FF"
+    hook_timeout: 90s
+    timeout: 30s
+configs:
+  c:
+    targets:
+      - target: t
+        model: m
+`
+	cfg, err := config.Load(writeTemp(t, yaml))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Targets["t"].HookPollInterval != 5*time.Second {
+		t.Errorf("want default poll interval 5s, got %v", cfg.Targets["t"].HookPollInterval)
+	}
+}
+
+func TestLoad_wolAndHookMutuallyExclusive(t *testing.T) {
+	yaml := `
+targets:
+  t:
+    url: http://192.168.1.100:11434
+    hook: "echo hi"
+    wol: "AA:BB:CC:DD:EE:FF"
+    hook_timeout: 30s
+    timeout: 10s
+configs:
+  c:
+    targets:
+      - target: t
+        model: m
+`
+	_, err := config.Load(writeTemp(t, yaml))
+	if err == nil {
+		t.Fatal("expected error when both hook and wol are set")
+	}
+}

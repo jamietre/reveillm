@@ -14,6 +14,7 @@ type Target struct {
 	APIKey           string        `yaml:"api_key"`
 	Timeout          time.Duration `yaml:"timeout"`
 	Hook             string        `yaml:"hook"`
+	WoL              string        `yaml:"wol"`
 	HookTimeout      time.Duration `yaml:"hook_timeout"`
 	HookPollInterval time.Duration `yaml:"hook_poll_interval"`
 }
@@ -45,7 +46,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	for name, t := range cfg.Targets {
-		if t.Hook != "" && t.HookPollInterval == 0 {
+		if (t.Hook != "" || t.WoL != "") && t.HookPollInterval == 0 {
 			t.HookPollInterval = 5 * time.Second
 		}
 		cfg.Targets[name] = t
@@ -69,6 +70,9 @@ func validate(cfg *Config) error {
 	for name, t := range cfg.Targets {
 		if t.URL == "" {
 			return fmt.Errorf("target %q: url is required", name)
+		}
+		if t.Hook != "" && t.WoL != "" {
+			return fmt.Errorf("target %q: hook and wol are mutually exclusive", name)
 		}
 	}
 	for cfgName, route := range cfg.Configs {
