@@ -133,7 +133,7 @@ configs:
 	}
 }
 
-func TestLoad_missingModel(t *testing.T) {
+func TestLoad_noModel_passthrough(t *testing.T) {
 	yaml := `
 targets:
   t:
@@ -144,9 +144,12 @@ configs:
     targets:
       - target: t
 `
-	_, err := config.Load(writeTemp(t, yaml))
-	if err == nil {
-		t.Fatal("expected error for missing model")
+	cfg, err := config.Load(writeTemp(t, yaml))
+	if err != nil {
+		t.Fatalf("expected no error for missing model (passthrough): %v", err)
+	}
+	if cfg.Configs["c"].Targets[0].Model != "" {
+		t.Fatal("expected empty model for passthrough")
 	}
 }
 

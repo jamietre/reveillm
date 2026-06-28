@@ -49,7 +49,7 @@ func (a *OpenAIAdapter) Forward(ctx context.Context, method, targetURL string, h
 // SubstituteModel replaces the "model" field in a JSON object body.
 // Returns body unchanged if body is empty or not a JSON object.
 func SubstituteModel(body []byte, model string) ([]byte, error) {
-	if len(body) == 0 {
+	if len(body) == 0 || model == "" {
 		return body, nil
 	}
 	var obj map[string]json.RawMessage

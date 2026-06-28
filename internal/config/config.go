@@ -86,9 +86,6 @@ func validate(cfg *Config) error {
 			if _, ok := cfg.Targets[entry.Target]; !ok {
 				return fmt.Errorf("config %q references unknown target %q", cfgName, entry.Target)
 			}
-			if entry.Model == "" {
-				return fmt.Errorf("config %q target %q: model is required", cfgName, entry.Target)
-			}
 		}
 	}
 	return nil

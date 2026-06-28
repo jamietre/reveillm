@@ -109,7 +109,11 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 			continue
 		}
 
-		slog.Info("target ok", "target", entry.Target, "model", entry.Model)
+		if entry.Model != "" {
+			slog.Info("target ok", "target", entry.Target, "model", entry.Model)
+		} else {
+			slog.Info("target ok", "target", entry.Target, "model", "(passthrough)")
+		}
 		result.Response = resp
 		result.cancel = cancel
 		return result, nil
