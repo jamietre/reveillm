@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os/exec"
@@ -98,8 +99,9 @@ func (r *Runner) Run(ctx context.Context, method string, headers http.Header, bo
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			cancel()
+			body2, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			slog.Warn("target failed", "target", entry.Target, "status", resp.StatusCode)
+			slog.Warn("target failed", "target", entry.Target, "status", resp.StatusCode, "body", string(body2))
 			result.Failures = append(result.Failures, TargetFailure{
 				Name:   entry.Target,
 				Reason: fmt.Sprintf("non-2xx status %d", resp.StatusCode),
