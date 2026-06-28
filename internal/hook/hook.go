@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"sync"
 	"time"
 )
@@ -25,11 +24,11 @@ func NewManager() *Manager {
 	return &Manager{wakers: make(map[string]*waker)}
 }
 
-// Run executes cmd via sh -c, then polls pollURL every pollInterval until any
-// HTTP response is received. Returns an error if the hook command fails or
-// hookTimeout is exceeded. Concurrent calls for the same targetName coalesce:
-// the second caller waits for the first wake attempt rather than firing again.
-func (m *Manager) Run(ctx context.Context, targetName, cmd, pollURL string, hookTimeout, pollInterval time.Duration) error {
+// Run executes action, then polls pollURL every pollInterval until any HTTP
+// response is received. Returns an error if the action fails or hookTimeout is
+// exceeded. Concurrent calls for the same targetName coalesce: the second
+// caller waits for the first wake attempt rather than firing again.
+func (m *Manager) Run(ctx context.Context, targetName string, action func() error, pollURL string, hookTimeout, pollInterval time.Duration) error {
 	m.mu.Lock()
 	w, ok := m.wakers[targetName]
 	if !ok {
@@ -53,7 +52,7 @@ func (m *Manager) Run(ctx context.Context, targetName, cmd, pollURL string, hook
 	w.active = true
 	w.mu.Unlock()
 
-	err := doWake(ctx, cmd, pollURL, hookTimeout, pollInterval)
+	err := doWake(ctx, action, pollURL, hookTimeout, pollInterval)
 
 	w.mu.Lock()
 	w.active = false
@@ -66,9 +65,9 @@ func (m *Manager) Run(ctx context.Context, targetName, cmd, pollURL string, hook
 	return err
 }
 
-func doWake(ctx context.Context, cmd, pollURL string, hookTimeout, pollInterval time.Duration) error {
-	if err := exec.CommandContext(ctx, "sh", "-c", cmd).Run(); err != nil {
-		return fmt.Errorf("hook command failed: %w", err)
+func doWake(ctx context.Context, action func() error, pollURL string, hookTimeout, pollInterval time.Duration) error {
+	if err := action(); err != nil {
+		return fmt.Errorf("wake action failed: %w", err)
 	}
 	return poll(ctx, pollURL, hookTimeout, pollInterval)
 }
@@ -96,7 +95,6 @@ func poll(ctx context.Context, url string, timeout, interval time.Duration) erro
 		return true
 	}
 
-	// probe immediately before waiting for the first tick
 	if probe() {
 		return nil
 	}

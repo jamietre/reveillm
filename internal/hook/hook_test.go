@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,12 +13,18 @@ import (
 	"github.com/jamietre/reveillm/internal/hook"
 )
 
+func shellAction(cmd string) func() error {
+	return func() error {
+		return exec.Command("sh", "-c", cmd).Run()
+	}
+}
+
 func TestManager_Run_execsHookCommand(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer srv.Close()
 
 	m := hook.NewManager()
-	err := m.Run(context.Background(), "t1", "true", srv.URL+"/", 5*time.Second, 500*time.Millisecond)
+	err := m.Run(context.Background(), "t1", shellAction("true"), srv.URL+"/", 5*time.Second, 500*time.Millisecond)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,7 +35,7 @@ func TestManager_Run_hookCommandFailure(t *testing.T) {
 	defer srv.Close()
 
 	m := hook.NewManager()
-	err := m.Run(context.Background(), "t1", "false", srv.URL+"/", 5*time.Second, 500*time.Millisecond)
+	err := m.Run(context.Background(), "t1", shellAction("false"), srv.URL+"/", 5*time.Second, 500*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected error when hook command exits non-zero")
 	}
@@ -48,7 +55,7 @@ func TestManager_Run_pollsUntilReady(t *testing.T) {
 	defer srv.Close()
 
 	m := hook.NewManager()
-	err := m.Run(context.Background(), "t1", "true", srv.URL+"/", 5*time.Second, 100*time.Millisecond)
+	err := m.Run(context.Background(), "t1", shellAction("true"), srv.URL+"/", 5*time.Second, 100*time.Millisecond)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +73,7 @@ func TestManager_Run_timeout(t *testing.T) {
 	defer srv.Close()
 
 	m := hook.NewManager()
-	err := m.Run(context.Background(), "t1", "true", srv.URL+"/", 300*time.Millisecond, 50*time.Millisecond)
+	err := m.Run(context.Background(), "t1", shellAction("true"), srv.URL+"/", 300*time.Millisecond, 50*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
@@ -85,7 +92,7 @@ func TestManager_Run_concurrentWakeCoalesced(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			errs[idx] = m.Run(context.Background(), "same-target", "true", srv.URL+"/", 5*time.Second, 50*time.Millisecond)
+			errs[idx] = m.Run(context.Background(), "same-target", shellAction("true"), srv.URL+"/", 5*time.Second, 50*time.Millisecond)
 		}(i)
 	}
 	wg.Wait()
