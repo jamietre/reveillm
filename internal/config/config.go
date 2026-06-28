@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jamietre/reveillm/internal/wol"
 	"gopkg.in/yaml.v3"
 )
 
@@ -73,6 +74,11 @@ func validate(cfg *Config) error {
 		}
 		if t.Hook != "" && t.WoL != "" {
 			return fmt.Errorf("target %q: hook and wol are mutually exclusive", name)
+		}
+		if t.WoL != "" {
+			if _, err := wol.BuildMagicPacket(t.WoL); err != nil {
+				return fmt.Errorf("target %q: invalid wol mac: %w", name, err)
+			}
 		}
 	}
 	for cfgName, route := range cfg.Configs {
