@@ -8,7 +8,7 @@ import (
 )
 
 // BuildMagicPacket constructs a WoL magic packet for the given MAC address.
-// mac must be colon-separated hex, e.g. "AA:BB:CC:DD:EE:FF".
+// mac must be colon-separated hex, e.g. "AA:BB:CC:DD:EE:FF" or "aa:bb:cc:dd:ee:ff".
 func BuildMagicPacket(mac string) ([]byte, error) {
 	parts := strings.Split(mac, ":")
 	if len(parts) != 6 {
@@ -17,8 +17,11 @@ func BuildMagicPacket(mac string) ([]byte, error) {
 	hw := make([]byte, 6)
 	for i, p := range parts {
 		b, err := hex.DecodeString(p)
-		if err != nil || len(b) != 1 {
+		if err != nil {
 			return nil, fmt.Errorf("invalid MAC address %q: %w", mac, err)
+		}
+		if len(b) != 1 {
+			return nil, fmt.Errorf("invalid MAC address %q: segment %q must be exactly 2 hex chars", mac, p)
 		}
 		hw[i] = b[0]
 	}
@@ -44,6 +47,8 @@ func Wake(mac string) error {
 		return fmt.Errorf("wol: opening UDP socket: %w", err)
 	}
 	defer conn.Close()
-	_, err = conn.Write(pkt)
-	return err
+	if _, err = conn.Write(pkt); err != nil {
+		return fmt.Errorf("wol: sending packet: %w", err)
+	}
+	return nil
 }
